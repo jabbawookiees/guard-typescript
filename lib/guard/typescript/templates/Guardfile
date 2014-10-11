@@ -1,0 +1,1 @@
+guard 'typescript', :input => 'app/assets/javascripts'
