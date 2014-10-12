@@ -99,6 +99,7 @@ There following options can be passed to Guard::TypeScript:
                                     # default: the path given with the :input option
 
 :noop => true                       # No operation: do not write an output file.
+                                    # Warning: Actually compiles the file and deletes the result.
                                     # default: false
 
 :shallow => true                    # Do not create nested output directories.
@@ -106,11 +107,6 @@ There following options can be passed to Guard::TypeScript:
 
 :source_map => true                 # Do create the source map file.
                                     # default: false
-
-:source_root => 'typescripts'       # Root path for typescript sources.
-                                    # Used in source map to determine root URL for
-                                    # all sources
-                                    # default: nil (using the `:input` directory)
 
 :hide_success => true               # Disable successful compilation messages.
                                     # default: false

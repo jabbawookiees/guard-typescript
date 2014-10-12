@@ -4,14 +4,21 @@ describe Guard::TypeScript::Runner do
   let(:runner) { Guard::TypeScript::Runner }
   let(:watcher) { Guard::Watcher.new('^(.+)\.(?:ts)$') }
   let(:formatter) { Guard::TypeScript::Formatter }
+  let(:bad_error_message) { "src/bad.ts: src/bad.ts(1,6): error TS1005: ';' expected.\nsrc/bad.ts(1,9): error TS1005: ';' expected.\nsrc/bad.ts(1,11): error TS1005: ';' expected.\nsrc/bad.ts(1,18): error TS1005: ';' expected.\n" }
 
   before do
-    runner.stub(:compile).and_return ''
     formatter.stub(:notify)
+  end
 
-    FileUtils.stub(:mkdir_p)
-    FileUtils.stub(:remove_file)
-    File.stub(:open)
+  before(:each) do
+    FileUtils.rm_rf("#{ @project_path }/src")
+    FileUtils.rm_rf("#{ @project_path }/target")
+    FileUtils.cp_r("#{ @project_path }/spec/data", "#{ @project_path }/src")
+  end
+
+  after(:each) do
+    FileUtils.rm_rf("#{ @project_path }/src")
+    FileUtils.rm_rf("#{ @project_path }/target")
   end
 
   describe '#run' do
@@ -32,17 +39,10 @@ describe Guard::TypeScript::Runner do
     end
 
     context 'without a nested directory' do
-      let(:watcher) { Guard::Watcher.new(%r{src/.+\.ts$}) }
-
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
       context 'without the :noop option' do
         it 'compiles the TypeScripts to the output and replace .ts with .js' do
           runner.run(['src/a.ts', 'src/b.ts'], [watcher], { :output => 'target' })
-          expect(File).to exist("#{ @project_path }/target/a.js")
-          expect(File).to exist("#{ @project_path }/target/b.js")
-        end
-
-        it 'compiles the TypeScripts to the output and replace .js.ts with .js' do
-          runner.run(['src/a.js.ts', 'src/b.js.ts'], [watcher], { :output => 'target' })
           expect(File).to exist("#{ @project_path }/target/a.js")
           expect(File).to exist("#{ @project_path }/target/b.js")
         end
@@ -54,17 +54,11 @@ describe Guard::TypeScript::Runner do
           expect(File).to exist("#{ @project_path }/src/a.js")
           expect(File).to exist("#{ @project_path }/src/b.js")
         end
-
-        it 'compiles the TypeScripts to the same dir like the file and replace .js.ts with .js' do
-          runner.run(['src/a.js.ts', 'src/b.js.ts'], [watcher])
-          expect(File).to exist("#{ @project_path }/src/a.js")
-          expect(File).to exist("#{ @project_path }/src/b.js")
-        end
       end
 
       context 'with the :noop option' do
         it 'does not write the output file' do
-          runner.run(['src/a.js.ts', 'src/b.js.ts'], [watcher], { :output => 'target', :noop => true })
+          runner.run(['src/a.ts', 'src/b.ts'], [watcher], { :output => 'target', :noop => true })
           expect(File).not_to exist("#{ @project_path }/src/a.js")
           expect(File).not_to exist("#{ @project_path }/src/b.js")
         end
@@ -76,175 +70,155 @@ describe Guard::TypeScript::Runner do
           expect(File).to exist("#{ @project_path }/src/a.js.map")
           expect(File).to exist("#{ @project_path }/src/b.js.map")
         end
-
-        it 'compiles the source map to the same dir like the file and replace .js.ts with .js.map' do
-          runner.run(['src/a.js.ts', 'src/b.js.ts'], [watcher], :source_map => true)
-          expect(File).to exist("#{ @project_path }/src/a.js.map")
-          expect(File).to exist("#{ @project_path }/src/b.js.map")
-        end
       end
     end
 
     context 'with the :shallow option set to false' do
-      let(:watcher) { Guard::Watcher.new('^app/typescripts/(.+)\.(?:ts)$') }
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
 
       it 'compiles the TypeScripts to the output and creates nested directories' do
-        runner.run(['app/typescripts/x/y/a.ts', 'app/typescripts/x/y/b.ts'],
-                   [watcher], { :output => 'javascripts', :shallow => false })
-        expect(File).to exist("#{ @project_path }/javascripts/x/y/a.js")
-        expect(File).to exist("#{ @project_path }/javascripts/x/y/b.js")
+        runner.run(['src/x/y/z/a.ts', 'src/x/y/z/b.ts'],
+                   [watcher], { :output => 'target', :shallow => false })
+        expect(File).to exist("#{ @project_path }/target/x/y/z/a.js")
+        expect(File).to exist("#{ @project_path }/target/x/y/z/b.js")
       end
 
       context 'with the :source_map option' do
         it 'generates the source map to the output and creates nested directories' do
-          runner.run(['app/typescripts/x/y/a.ts', 'app/typescripts/x/y/b.ts'],
-                     [watcher], { :output => 'javascripts', :shallow => false, :source_map => true })
-          expect(File).to exist("#{ @project_path }/javascripts/x/y/a.js.map")
-          expect(File).to exist("#{ @project_path }/javascripts/x/y/b.js.map")
+          runner.run(['src/x/y/z/a.ts', 'src/x/y/z/b.ts'],
+                     [watcher], { :output => 'target', :shallow => false, :source_map => true })
+          expect(File).to exist("#{ @project_path }/target/x/y/z/a.js.map")
+          expect(File).to exist("#{ @project_path }/target/x/y/z/b.js.map")
         end
       end
     end
 
     context 'with the :shallow option set to true' do
-      let(:watcher) { Guard::Watcher.new('^app/typescripts/(.+)\.(?:ts)$') }
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
 
       it 'compiles the TypeScripts to the output without creating nested directories' do
-        runner.run(['app/typescripts/x/y/a.ts', 'app/typescripts/x/y/b.ts'],
-                   [watcher], { :output => 'javascripts', :shallow => true })
-        expect(File).to exist("#{ @project_path }/javascripts/a.js")
-        expect(File).to exist("#{ @project_path }/javascripts/b.js")
+        runner.run(['src/x/y/z/a.ts', 'src/x/y/z/b.ts'],
+                   [watcher], { :output => 'target', :shallow => true })
+        expect(File).to exist("#{ @project_path }/target/a.js")
+        expect(File).to exist("#{ @project_path }/target/b.js")
       end
 
       context 'with the :source_map option' do
         it 'generates the source map to the output without creating nested directories' do
-          runner.run(['app/typescripts/x/y/a.ts', 'app/typescripts/x/y/b.ts'],
-                     [watcher], { :output => 'javascripts', :shallow => true, :source_map => true })
-          expect(File).to exist("#{ @project_path }/javascripts/a.js.map")
-          expect(File).to exist("#{ @project_path }/javascripts/b.js.map")
+          runner.run(['src/x/y/z/a.ts', 'src/x/y/z/b.ts'],
+                     [watcher], { :output => 'target', :shallow => true, :source_map => true })
+          expect(File).to exist("#{ @project_path }/target/a.js.map")
+          expect(File).to exist("#{ @project_path }/target/b.js.map")
         end
       end
     end
 
     context 'with the :source_map option' do
-      before do
-        runner.unstub(:compile)
-        ::TypeScript.stub(:compile_file)
-        File.stub(:read) { |file| file }
-      end
-
-      after do
-        runner.stub(:compile).and_return ''
-        ::TypeScript.unstub(:compile_file)
-      end
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
 
       it 'compiles with source map file options set' do
-        ::TypeScript.should_receive(:compile_file).with 'src/a.ts', hash_including({
-          :sourceMap => true,
-          :generatedFile => 'a.js',
-          :sourceFiles => ['a.ts'],
-          :sourceRoot => 'src',
+        expect(::TypeScript).to receive(:compile_file).with 'src/a.ts', hash_including({
+          :source_map => true,
         })
         runner.run(['src/a.ts'], [watcher], { :output => 'target', :source_map => true, :input => 'src' })
       end
 
       it 'accepts a different source_root' do
-        ::TypeScript.should_receive(:compile_file).with 'src/a.ts', hash_including(:sourceRoot => 'foo')
+        expect(::TypeScript).to receive(:compile_file).with 'src/a.ts', hash_including(:source_root => 'foo')
         runner.run(['src/a.ts'], [watcher], { :output => 'target', :source_map => true, :source_root => 'foo' })
       end
     end
 
     context 'with compilation errors' do
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
       context 'without the :noop option' do
         it 'shows the error messages' do
-          runner.should_receive(:compile).and_raise ::TypeScript::Error.new("Parse error on line 2: Unexpected 'UNARY'")
-          expect(formatter).to receive(:error).once.with("a.ts: Parse error on line 2: Unexpected 'UNARY'")
-          expect(formatter).to receive(:notify).with("a.ts: Parse error on line 2: Unexpected 'UNARY'",
+          expect(formatter).to receive(:error).once.with(bad_error_message)
+          expect(formatter).to receive(:notify).with(bad_error_message,
                                                      :title => 'TypeScript results',
                                                      :image => :failed,
                                                      :priority => 2)
-          runner.run(['a.ts'], [watcher], { :output => 'javascripts' })
+          runner.run(['src/bad.ts'], [watcher], { :output => 'target' })
         end
       end
       context 'with the :noop option' do
         it 'shows the error messages' do
-          runner.should_receive(:compile).and_raise Guard::TypeScript::Error.new("Parse error on line 2: Unexpected 'UNARY'")
-          expect(formatter).to receive(:error).once.with("a.ts: Parse error on line 2: Unexpected 'UNARY'")
-          expect(formatter).to receive(:notify).with("a.ts: Parse error on line 2: Unexpected 'UNARY'",
+          expect(formatter).to receive(:error).once.with(bad_error_message)
+          expect(formatter).to receive(:notify).with(bad_error_message,
                                                      :title => 'TypeScript results',
                                                      :image => :failed,
                                                      :priority => 2)
-          runner.run(['a.ts'], [watcher], { :output => 'javascripts', :noop => true })
+          runner.run(['src/bad.ts'], [watcher], { :output => 'target', :noop => true })
         end
       end
 
       context 'with the :error_to_js option' do
         it 'write the error message as javascript file' do
-          runner.should_receive(:compile).and_raise Guard::TypeScript::Error.new("Parse error on line 2: Unexpected 'UNARY'")
-          runner.should_receive(:write_javascript_file).once.with("throw \"a.ts: Parse error on line 2: Unexpected 'UNARY'\";", nil, 'a.ts', 'javascripts', kind_of(Hash))
-          runner.run(['a.ts'], [watcher], { :output => 'javascripts', :error_to_js => true })
+          expect(runner).to receive(:write_javascript_file).once.with(
+            "throw \"#{bad_error_message}\";",
+            nil, 'src/bad.ts', 'target', kind_of(Hash)
+          )
+          runner.run(['src/bad.ts'], [watcher], { :output => 'target', :error_to_js => true })
         end
       end
     end
 
     context 'without compilation errors' do
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
+
       context 'without the :noop option' do
         it 'shows a success messages' do
-          expect(formatter).to receive(:success).once.with('Successfully generated javascripts/a.js')
-          expect(formatter).to receive(:notify).with('Successfully generated javascripts/a.js',
+          expect(formatter).to receive(:success).once.with('Successfully generated target/a.js')
+          expect(formatter).to receive(:notify).with('Successfully generated target/a.js',
                                                      :title => 'TypeScript results')
-          runner.run(['a.ts'], [watcher], { :output => 'javascripts' })
+          runner.run(['src/a.ts'], [watcher], { :output => 'target' })
         end
       end
 
       context 'with the :noop option' do
         it 'shows a success messages' do
-          expect(formatter).to receive(:success).once.with('Successfully verified javascripts/a.js')
-          expect(formatter).to receive(:notify).with('Successfully verified javascripts/a.js',
+          expect(formatter).to receive(:success).once.with('Successfully verified target/a.js')
+          expect(formatter).to receive(:notify).with('Successfully verified target/a.js',
                                                      :title => 'TypeScript results')
-          runner.run(['a.ts'], [watcher], { :output => 'javascripts',
+          runner.run(['src/a.ts'], [watcher], { :output => 'target',
                                             :noop => true })
         end
       end
 
       context 'with the :hide_success option set to true' do
-        let(:watcher) { Guard::Watcher.new('^app/typescripts/.+\.(?:ts)$') }
-
         it 'does not show the success message' do
-          expect(formatter).not_to receive(:success).with('Successfully generated javascripts/a.js')
-          expect(formatter).not_to receive(:notify).with('Successfully generated javascripts/a.js',
+          expect(formatter).not_to receive(:success).with('Successfully generated target/a.js')
+          expect(formatter).not_to receive(:notify).with('Successfully generated target/a.js',
                                                          :title => 'TypeScript results')
-          runner.run(['app/typescripts/x/y/a.ts'], [watcher], { :output => 'javascripts',
+          runner.run(['src/x/y/z/a.ts'], [watcher], { :output => 'target',
                                                                 :hide_success => true })
         end
       end
     end
-=begin
-    context 'with :hide_success over multiple runs' do
-      it 'shows the failure message every time' do
-        runner.should_receive(:compile).twice.and_raise Guard::TypeScript::Error.new("Parse error on line 2: Unexpected 'UNARY'")
-        expect(formatter).to receive(:error).twice.with("a.ts: Parse error on line 2: Unexpected 'UNARY'")
-        expect(formatter).to receive(:notify).twice.with("a.ts: Parse error on line 2: Unexpected 'UNARY'",
-                                               :title => 'TypeScript results',
-                                               :image => :failed,
-                                               :priority => 2)
 
-        2.times { runner.run(['a.ts'], [watcher], { :output => 'javascripts' }) }
+    context 'with :hide_success over multiple runs' do
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
+
+      it 'shows the failure message every time' do
+        expect(formatter).to receive(:error).twice.with(bad_error_message)
+        expect(formatter).to receive(:notify).twice.with(bad_error_message,
+                                                         :title => 'TypeScript results',
+                                                         :image => :failed,
+                                                         :priority => 2)
+        2.times { runner.run(['src/bad.ts'], [watcher], { :output => 'target' }) }
       end
 
       it 'shows the success message only when previous attempt was failure' do
-        runner.should_receive(:compile).and_raise Guard::TypeScript::Error.new("Parse error on line 2: Unexpected 'UNARY'")
-        runner.run(['a.ts'], [watcher], { :output => 'javascripts',
-                                              :hide_success => true })
+        runner.run(['src/bad.ts'], [watcher], { :output => 'target',
+                                                :hide_success => true })
 
-        runner.stub(:compile).and_return ''
-        expect(formatter).to receive(:success).with('Successfully generated javascripts/a.js')
-        expect(formatter).to receive(:notify).with('Successfully generated javascripts/a.js',
+        expect(formatter).to receive(:success).with('Successfully generated target/a.js')
+        expect(formatter).to receive(:notify).with('Successfully generated target/a.js',
                                                    :title => 'TypeScript results')
-        runner.run(['a.ts'], [watcher], { :output => 'javascripts',
+        runner.run(['src/a.ts'], [watcher], { :output => 'target',
                                               :hide_success => true })
       end
     end
-=end
   end
 
   describe '#remove' do
@@ -256,12 +230,14 @@ describe Guard::TypeScript::Runner do
     end
 
     it 'removes the files' do
+      runner.run(['src/a.ts', 'src/b.ts'], [watcher], :output => 'target')
       expect(FileUtils).to receive(:remove_file).with('target/a.js')
       expect(FileUtils).to receive(:remove_file).with('target/b.js')
       runner.remove(['src/a.ts', 'src/b.ts'], [watcher], { :output => 'target' })
     end
 
     it 'shows a notification' do
+      runner.run(['src/a.ts', 'src/b.ts'], [watcher], :output => 'target')
       expect(formatter).to receive(:success).once.with('Removed target/a.js, target/b.js')
       expect(formatter).to receive(:notify).with('Removed target/a.js, target/b.js',
                                                  :title => 'TypeScript results')

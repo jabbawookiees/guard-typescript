@@ -1,4 +1,4 @@
-require 'typescript'
+require 'ruby-typescript'
 
 module Guard
   class TypeScript
@@ -96,9 +96,8 @@ module Guard
                   if map and File.exists?(map)
                     FileUtils.remove_file(map)
                   end
-                else
-                  changed_files << js << map
                 end
+                changed_files << js << map
               rescue => e
                 error_message = file + ': ' + e.message.to_s
 
@@ -112,7 +111,6 @@ module Guard
               end
             end
           end
-
           [changed_files.flatten.compact, errors]
         end
 
@@ -127,11 +125,10 @@ module Guard
           options = options.clone
           options[:output] = javascript_file_name(filename, directory)
           result = ::TypeScript.compile_file(filename, options)
-
           if options[:source_map]
-            js, map = result['js'], result['source_map']
+            js, map = result[:js], result[:source_map]
           else
-            js  = result['js']
+            js  = result[:js]
           end
 
           [js, map]
@@ -197,7 +194,11 @@ module Guard
 
           watchers.product(files).each do |watcher, file|
             if matches = file.match(watcher.pattern)
-              target = matches[1] ? File.join(options[:output], File.dirname(matches[1])).gsub(/\/\.$/, '') : options[:output] || File.dirname(file)
+              if options[:output]
+                target = matches[1] ? File.join(options[:output], File.dirname(matches[1])).gsub(/\/\.$/, '') : options[:output] || File.dirname(file)
+              else
+                target = File.dirname(file)
+              end
               if directories[target]
                 directories[target] << file
               else

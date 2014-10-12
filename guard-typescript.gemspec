@@ -20,7 +20,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'ruby-typescript', '>= 0.1.0'
 
   s.add_development_dependency 'bundler'
-  s.add_development_dependency 'guard-rspec'
   s.add_development_dependency 'rspec'
 
   s.files        = Dir.glob('{lib}/**/*') + %w[LICENSE README.md]
