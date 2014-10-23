@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
   s.rubyforge_project = 'guard-typescript'
 
   s.add_dependency 'guard', '>= 1.1.0'
-  s.add_dependency 'ruby-typescript', '>= 0.1.0'
+  s.add_dependency 'ruby-typescript', '>= 0.1.1'
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'rspec'
