@@ -119,18 +119,27 @@ module Guard
         # @param [String] filename the TypeScript file name
         # @param [Hash] options the options for the execution
         # @option options [Boolean] :source_map generate the source map files
+        # @option options [Boolean] :concatenate concatenate dependencies into one file
         # @return [Array<String, String>] the JavaScript filename and the source map filename
         #
         def compile(filename, directory, options)
           options = options.clone
-          options[:output] = javascript_file_name(filename, directory)
-          result = ::TypeScript.compile_file(filename, options)
+          keys = [:source_map, :source_root, :target, :module]
+          values = options.values_at(*keys)
+          compile_options = Hash[keys.zip(values)]
+          output_filename = javascript_file_name(filename, directory)
+          if options[:concatenate]
+            compile_options[:output] = output_filename
+          else
+            compile_options[:output_dir] = File.dirname(output_filename)
+          end
+
+          result = ::TypeScript.compile_file(filename, compile_options)
           if options[:source_map]
             js, map = result[:js], result[:source_map]
           else
             js  = result[:js]
           end
-
           [js, map]
         end
 

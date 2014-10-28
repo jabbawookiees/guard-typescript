@@ -25,6 +25,7 @@ module Guard
     # @param [Hash] options the options for the Guard
     # @option options [String] :input the input directory
     # @option options [String] :output the output directory
+    # @option options [Boolean] :concatenate combine dependencies into files
     # @option options [Boolean] :shallow do not create nested directories
     # @option options [Boolean] :hide_success hide success message notification
     # @option options [Boolean] :all_on_start generate all JavaScripts files on start

@@ -219,6 +219,43 @@ describe Guard::TypeScript::Runner do
                                               :hide_success => true })
       end
     end
+
+    context 'with the :concatenate option' do
+      let(:watcher) { Guard::Watcher.new(%r{src/(.+\.(?:ts))$}) }
+      it 'should concatenate dependencies if :concatenate is true' do
+        runner.run(['src/referencer.ts'], [watcher], { :output => 'target',
+                                                       :concatenate => true })
+        expect(File).to exist("#{ @project_path }/target/referencer.js")
+
+        File.open("#{ @project_path }/target/referencer.js", "r") do |file|
+          found = false
+          file.each_line do |line|
+            if line =~ /I am the referenced file/
+              found = true
+              break
+            end
+          end
+          expect(found).to eq(true)
+        end
+      end
+
+      it 'should separate dependencies if :concatenate is false' do
+        runner.run(['src/referencer.ts'], [watcher], { :output => 'target',
+                                                       :concatenate => false })
+        expect(File).to exist("#{ @project_path }/target/referencer.js")
+
+        File.open("#{ @project_path }/target/referencer.js", "r") do |file|
+          found = false
+          file.each_line do |line|
+            if line =~ /I am the referenced file/
+              found = true
+              break
+            end
+          end
+          expect(found).to eq(false)
+        end
+      end
+    end
   end
 
   describe '#remove' do
